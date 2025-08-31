@@ -1446,39 +1446,46 @@ HANDLERS.terminal = async ({ sock, jid, sender, args }) => {
   });
 };
 
-// Group commands toggle
+// Group commands toggle OFF
 HANDLERS.offgc = async ({ sock, jid, sender, isGroup }) => {
   if (!isOwnerOrAdmin(sender)) return sock.sendMessage(jid, { text: "❌ Sirf owner aur admins hi `offgc` chala sakte hain." });
   if (!isGroup) return sock.sendMessage(jid, { text: "❌ Ye command sirf group me chalta hai." });
   DB.offGroupCmds[jid] = true;
   saveDB();
+  console.log(`[INFO] Group commands disabled for group ${jid} by ${sender}`);
   return sock.sendMessage(jid, { text: "✅ Group commands aur notifications disable kar diye gaye hain is group mein." });
 };
 
+// Group commands toggle ON
 HANDLERS.ongc = async ({ sock, jid, sender, isGroup }) => {
   if (!isOwnerOrAdmin(sender)) return sock.sendMessage(jid, { text: "❌ Sirf owner aur admins hi `ongc` chala sakte hain." });
   if (!isGroup) return sock.sendMessage(jid, { text: "❌ Ye command sirf group me chalta hai." });
   if (DB.offGroupCmds[jid]) delete DB.offGroupCmds[jid];
   saveDB();
+  console.log(`[INFO] Group commands enabled for group ${jid} by ${sender}`);
   return sock.sendMessage(jid, { text: "✅ Group commands aur notifications enable kar diye gaye hain is group mein." });
 };
 
-// DM commands toggle
+// DM commands toggle OFF
 HANDLERS.offdm = async ({ sock, jid, sender, isGroup }) => {
   if (!isOwnerOrAdmin(sender)) return sock.sendMessage(jid, { text: "❌ Sirf owner aur admins hi `offdm` chala sakte hain." });
   if (isGroup) return sock.sendMessage(jid, { text: "❌ Ye command sirf DM me chalta hai." });
   DB.offDmCmds[sender] = true;
   saveDB();
+  console.log(`[INFO] DM commands disabled for user ${sender}`);
   return sock.sendMessage(jid, { text: "✅ DM commands aur notifications disable kar diye gaye hain aapke liye." });
 };
 
+// DM commands toggle ON
 HANDLERS.ondm = async ({ sock, jid, sender, isGroup }) => {
   if (!isOwnerOrAdmin(sender)) return sock.sendMessage(jid, { text: "❌ Sirf owner aur admins hi `ondm` chala sakte hain." });
   if (isGroup) return sock.sendMessage(jid, { text: "❌ Ye command sirf DM me chalta hai." });
   if (DB.offDmCmds[sender]) delete DB.offDmCmds[sender];
   saveDB();
+  console.log(`[INFO] DM commands enabled for user ${sender}`);
   return sock.sendMessage(jid, { text: "✅ DM commands aur notifications enable kar diye gaye hain aapke liye." });
 };
+
 
 
   // AI Mode ON
@@ -2282,23 +2289,33 @@ const adminCommands = ['add', 'remove', 'addgroup', 'removegroup'];
 
 // Check command permissions and authorizations
 if (cocCommands.includes(command)) {
-  if (isGroupChat && !isAuthorizedForGroup) {
-    return await sock.sendMessage(jid, {
-      text: '❌ This group is not authorized to use this command.'
-    });
-  }
-  if (!isGroupChat && !isAuthorizedForDM) {
-    return await sock.sendMessage(jid, {
-      text: '❌ You are not authorized to use this command in DM.'
-    });
+  if (isGroupChat) {
+    if (DB.offGroupCmds[jid]) {
+      // silently block all commands while group commands disabled (no message sent)
+      console.log(`[INFO] Command '${command}' blocked in group ${jid} due to offGroupCmds toggle.`);
+      return; // skip command processing silently
+    }
+    if (!isAuthorizedForGroup) {
+      return await sock.sendMessage(jid, { text: '❌ This group is not authorized to use this command.' });
+    }
+  } else {
+    if (DB.offDmCmds[sender]) {
+      // silently block DM commands while disabled, no message sent back
+      console.log(`[INFO] Command '${command}' blocked in DM from ${sender} due to offDmCmds toggle.`);
+      return;
+    }
+    if (!isAuthorizedForDM) {
+      return await sock.sendMessage(jid, { text: '❌ You are not authorized to use this command in DM.' });
+    }
   }
 }
 
 if (adminCommands.includes(command)) {
-  if (!isOwner(sender)) {
+  if (!isOwnerOrAdmin(sender)) {
     return await sock.sendMessage(jid, { text: '❌ You are not an admin.' });
   }
 }
+
 
 
       if (!isOwner && isOnCooldown(sender)) {

@@ -1521,14 +1521,13 @@ HANDLERS.terminalInput = async ({ sock, jid, sender, body }) => {
   const cmd = body.trim();
   if (!cmd) return;
 
+  // ❌ Blocked commands
   if (isBlockedCommand(cmd)) {
     return sock.sendMessage(jid, { text: `⚠️ Yeh command allowed nahi hai: ${cmd.split(" ")[0]}` });
   }
 
-  // 📂 cd handle
+  // 📂 Handle cd
   if (cmd.startsWith("cd ")) {
-    const path = require("path");
-    const fs = require("fs");
     const targetDir = cmd.slice(3).trim();
     const newCwd = path.resolve(term.cwd, targetDir);
     if (fs.existsSync(newCwd) && fs.lstatSync(newCwd).isDirectory()) {
@@ -1539,7 +1538,7 @@ HANDLERS.terminalInput = async ({ sock, jid, sender, body }) => {
     }
   }
 
-  // 🚀 Run command with exec (same as HANDLERS.terminal)
+  // 🚀 Run with exec (NO spawn, NO execFile)
   exec(cmd, { cwd: term.cwd, timeout: 20 * 1000, maxBuffer: 1024 * 1024 }, async (error, stdout, stderr) => {
     let output = "";
     if (error) output = `❌ Error: ${error.message}`;
